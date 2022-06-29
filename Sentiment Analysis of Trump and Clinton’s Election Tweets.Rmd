@@ -1,0 +1,335 @@
+---
+title: "Sentiment Analysis of Trump and Clinton’s Election Tweets"
+author: "Ankamma Reddy Kolli"
+date: "15/06/2022"
+output: 
+  word_document: default
+  pdf_document: default
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages("lubridate")
+#install.packages("ggplot2")
+#install.packages("dplyr")
+#install.packages("tidytext")
+#install.packages("tm")
+#install.packages("wordcloud")
+#install.packages("readr")
+#install.packages("tidyr")
+#install.packages("RColorBrewer")
+#install.packages("stringr")
+#install.packages("RSentiment")
+#install.packages("cowplot")
+#install.packages("ggthemes")
+#install.packages("ggthemes")
+#install.packages("kableExtra")
+#install.packages("tibble")
+#install.packages("data.table", dependencies=TRUE)
+#install.packages("textdata")
+
+library(lubridate) # Date & Time
+library(ggplot2)# Data Visualisation
+library(dplyr) #Data Wrangling
+library(tidytext) #Text Mining
+library(tm) #Text Mining
+library(wordcloud)
+library(readr)
+library(tidyr) #Tidy Text
+library(RColorBrewer) #Data Visualisation
+library(stringr) #String Manipulation
+library(RSentiment) #Sentiment Analysis
+library(cowplot) #Plot Arrange
+library(ggthemes) #Data Visualisation
+library(knitr)
+library(kableExtra)
+library(tibble)
+library(data.table)
+library(reshape2)
+library(gridExtra)
+library(textdata)
+```
+
+## Abstract
+
+Twitter is one of the most popular micro-blogging social media networking tools. Through this platform, there were many tweets related to the 2016 US Presidential election where people on their Twitter handles could express their views on a given presidential candidate. Therefore, it is better to understand the different sentiments associated with these tweets as presidential candidates expressed their views while doing their campaigns. The project was completed using a dataset downloaded from the Kaggle.com website. Using this dataset, Wordclouds for both candidates was added for this project. Besides this basic Wordcloud, a comparison cloud was added to the project to plot the difference in the word usage by these two presidential candidates. The project also calculates the sentiments expressed and then compares the identified sentiments and categorizes them as either positive or negative sentiments as used by the two candidates in the 2016 US Presidential election. The project utilized the lexicon algorithm that helped calculate the sentiment of political tweets collected 100 days before the election. The project utilized the manually labeled and automatically labeled tweets by looking into hashtag topics. The report suggests that Twitter is one of the most reliable platforms that are essential in providing previous work comparisons. From the project, it was possible to categorize the tweets and identify either of the two candidates who utilized the positive or negative sentiments in their campaigning tweets. From the results of this project, it would be recommended to perform sentiment analysis on the views based on people and their preferred presidential candidate and compare it with the polling data after the election. 
+
+
+
+## Introduction
+Twitter is a social media networking platform that allows users to post tweets on their Twitter pages (Knight & Kaye, 2016). The tweets can be publicly viewed by anyone or made private only to be viewed by individuals who follow the user who posts the tweets. Twitter utilizes hashtags within tweets to identify different keywords or topics (Calvin et al., 2015). Therefore, this project aims to gain insights into different sentiments identified from tweets made by the two presidential candidates of the 2016 US Presidential elections, Donald Trump, the Republican candidate, and Hillary Clinton, the Democrat Candidate. The tweets could either be positive or negative, which could identify the candidate's way of the campaign and the words. The project collects tweets from the two candidates from their Twitter pages. The project will map the tweets along with their sentiments from them. Therefore, the project creates a sentiment algorithm that will use a collection of words, each with its sentiment value, to analyze tweets for both Trump and Clinton 2016 US Presidential candidates. 
+
+## Literature Review
+
+In a study by O'Connor et al. (2010), the authors gathered tweets from the 2012 US Presidential Election that was made up of the phrases Obama and McCain. In their study, they applied the lexicon sentiment analysis approach to the election tweets, from which they could compare the results with the polling data (O'Connor et al., 2010). A subjectivity lexicon was utilized, which was made up of approximately 1600 positive words and 1200 negative words. In another study by Jahnbakhsh & Moon, Naïve Bayes Algorithm was utilized to classify tweets associated with the 2012 US Presidential Election. Nine hundred eighty-nine tweets were manually labeled in this study to train the classifier from which the polling data and results were compared (Joyce & Deng, 2017). Wang et al. (2012), in their study, automatically labeled tweets based on emotions. The authors utilized hashtags labels such as #sorrow and #happy in training the classifier to identify tweets expressing sadness and joy. The authors were able to achieve a 65.65% accuracy in their analysis (Wang et al., 2012
+From the related literature, the authors majorly concentrated on the comparison of sentiment results and polling data. However, since the presidential candidates have an influence on elections during their campaigns depending on what they say, it is necessary for this project where sentiment analysis will be performed on individual tweets to identify whether they contain positive or negative sentiments. The project intends to answer whether it is possible to categorize sentiment tweets as either positive or negative sentiments for the Democrat and Republican candidates.
+
+
+## Theory
+
+H1: The tweets from the Democrat candidate, Hillary Clinton, involve positive sentiments and emotions, but the tweets from the Republican candidate, Donald Trump, involve more negative sentiments and emotions and use more negation words.
+
+## Data
+Trump and Clinton tweets available at kaggle: https://www.kaggle.com/code/erikbruin/text-mining-the-clinton-and-trump-election-tweets/data
+
+```{r echo=FALSE}
+#Note: encoding was added as I had an issue with this on my laptop (not on Kaggle)
+tweets <- as_tibble(data.table::fread(str_c("C:/Users/User/Downloads/tweets.csv (5)/tweets.csv")))
+
+```
+The dataset is made up of 28 variables and 6,444 tweets. The variable handle is the dataset containing tweets from Donald Trump and Hillary Clinton. 
+Within the dataset, if there is a blank in the "original_author," then either Hillary Clinton or Donald Trump is the handler. However, if no blank is left on the "original_author" variable, it means that Clinton or Trump retweeted. For the text in these records, they are the original tweets and not retweets from Clinton or Trump. 
+
+```{r}
+tweets$time <- ymd_hms(tweets$time)
+glimpse(tweets)
+```
+There was the need to check whether the involved the use of languages other than English
+```{r}
+tweets %>% group_by(lang) %>% count() %>% rename(Language = lang, 'Number of Tweets' = n)
+```
+For this project, I will use tweets only in English. From the tweets dataset, the official Twitter name for Donald Trump is reakDonaldTrump, and that of Hillary Clinton is Hillary Clinton. To ensure flexibility and simplicity, the project has shortened these names. 
+
+The official Twitter name of Donald Trump is “realDonaldTrump,” and the Twitter name of Hillary Clinton is Hillary Clinton. However, I have shortened their names for this analysis to keep it simple. The table below illustrates the number of non-Spanish tweets for Hillary Clinton and Donald Trump. 
+
+
+```{r}
+tweets <- tweets %>% filter(lang != "es")
+
+tweets$handle <- sub("realDonaldTrump", "Trump", tweets$handle)
+tweets$handle <- sub("HillaryClinton", "Clinton", tweets$handle)
+tweets$is_retweet <- as.logical(tweets$is_retweet)
+tweets %>% filter(is_retweet==FALSE) %>% group_by(handle) %>% count()
+
+```
+The next thing was to check how many people retweeted to tweets by Donald and Hillary. The project illustrates only people that have retweeted at least 5 times. It is clear that there are only 274 people who were retweeted. 
+```{r}
+p1 <- tweets %>% filter(original_author != "") %>% group_by(original_author) %>% count() %>% filter(n>=5) %>% arrange(desc(n)) %>% ungroup()
+
+ggplot(p1, aes(x=reorder(original_author, n), y=n)) +
+        geom_bar(stat="identity", fill="darkgreen") + coord_flip() +
+        labs(x="", y="number of tweets retweeted by either Trump or Clinton") +
+        theme(legend.position = "none")
+
+```
+
+## Methodology
+After having identified the tweets from both Hillary and Donald, the next thing was to do text as shown below. 
+```{r}
+tweets$author <- ifelse(tweets$original_author != "", tweets$original_author, tweets$handle)
+
+head(tweets %>% select(author, handle, text), 20)
+        
+```
+The text contained some Regex like "\n"and "\"
+
+```{r}
+tweets$text[c(2,4)]
+```
+In this project, the first thing will involve the removal of \n as removePunctuation. Also, I will remove the URLs. Next will involve converting the tweet text to ascii to ensure the removal of emojis. 
+```{r}
+tweets$text <- str_replace_all(tweets$text, "[\n]" , "") #remove new lines
+tweets$text <- str_replace_all(tweets$text, "&amp", "") # rm ampersand
+
+#URLs are always at the end and did not counts towards the 140 characters limit
+tweets$text <- str_replace_all(tweets$text, "http.*" , "")
+
+tweets$text <- iconv(tweets$text, "latin1", "ASCII", sub="")
+```
+```{r}
+head(tweets)
+```
+
+Next will involve the cleaning of the text where I will remove numbers, strip whitespaces, remove all English stopwords, convert all characters to lower character, and remove punctuation. 
+
+
+```{r}
+tweets <- tweets %>% rename (doc_id = id)
+ClintonTweets <- tweets %>% filter(is_retweet=="FALSE" & handle=="Clinton")
+TrumpTweets <- tweets %>% filter(is_retweet=="FALSE" & handle=="Trump")
+
+TrumpCorpus <- DataframeSource(TrumpTweets)
+TrumpCorpus <- VCorpus(TrumpCorpus)
+
+ClintonCorpus <- DataframeSource(ClintonTweets)
+ClintonCorpus <- VCorpus(ClintonCorpus)
+
+TrumpCorpus
+
+```
+```{r}
+CleanCorpus <- function(x){
+     x <- tm_map(x, content_transformer(tolower))
+     x <- tm_map(x, removeNumbers) #remove numbers before removing words. Otherwise "trump2016" leaves "trump"
+     x <- tm_map(x, removeWords, tidytext::stop_words$word)
+     x <- tm_map(x, removePunctuation)
+     x <- tm_map(x, stripWhitespace)
+     return(x)
+}
+
+RemoveNames <- function(x) {
+       x <- tm_map(x, removeWords, c("donald", "hillary", "clinton", "trump", "realdonaldtrump", "hillaryclinton"))
+       return(x)
+}
+
+CreateTermsMatrix <- function(x) {
+        x <- TermDocumentMatrix(x)
+        x <- as.matrix(x)
+        y <- rowSums(x)
+        y <- sort(y, decreasing=TRUE)
+        return(y)
+}
+
+TrumpCorpus <- CleanCorpus(TrumpCorpus)
+TermFreqTrump <- CreateTermsMatrix(TrumpCorpus)
+
+content(TrumpCorpus[[1]])
+```
+Next, I performed sentiment analysis using the tidytext package that involves several sentiment lexicons
+```{r}
+get_sentiments("bing")
+```
+A wordcloud has been created to help identify the most used words by Trump, the Republican candidate.  
+```{r}
+set.seed(2018)
+
+TrumpCorpus1 <- RemoveNames(TrumpCorpus)
+TermFreqTrump <- CreateTermsMatrix(TrumpCorpus1)
+TrumpDF <- data.frame(word=names(TermFreqTrump), count=TermFreqTrump)
+
+
+wordcloud(TrumpDF$word, TrumpDF$count, max.words = 100, scale=c(2.5,.5), random.color = TRUE, colors=brewer.pal(9,"Set1"))
+```
+
+ A wordcloud has been created to help identify the most used words by Clinton, the Democrate presidential candidate.  
+```{r}
+ClintonCorpus1 <- RemoveNames(ClintonCorpus)
+TermFreqClinton <- CreateTermsMatrix(ClintonCorpus1)
+ClintonDF <- data.frame(word=names(TermFreqClinton), count=TermFreqClinton)
+
+wordcloud(ClintonDF$word, ClintonDF$count, max.words = 100, scale=c(2.5,.5), random.color = TRUE, colors=brewer.pal(9,"Set1"))
+```
+
+
+
+## Results
+
+From the analysis performed in this project, it is illustrated that the trump was the most used term and enjoy was the least used term.
+
+```{r}
+TrumpDF <- data.frame(word=names(TermFreqTrump), count=TermFreqTrump)
+
+TrumpDF[1:20,] %>%
+        ggplot(aes(x=(reorder(word, count)), y=count)) +
+        geom_bar(stat='identity', fill="blue") + coord_flip() + theme(legend.position = "none") +
+        labs(x="")
+
+
+```
+
+
+To understand the difference of words used by the two presidential candidates in their tweets, I created the comparison cloud using the function comparison.cloud. Hillary clinton as identified used the word president more often unlike Trump.
+
+
+```{r}
+allClinton <- paste(ClintonTweets$text, collapse = " ")
+allTrump <- paste(TrumpTweets$text, collapse = " ")
+allClTr <- c(allClinton, allTrump)
+
+allClTr <- VectorSource(allClTr)
+allCorpus <- VCorpus(allClTr)
+allCorpus <- CleanCorpus(allCorpus)
+allCorpus <- RemoveNames(allCorpus)
+
+TermsAll <- TermDocumentMatrix(allCorpus)
+colnames(TermsAll) <- c("Clinton", "Trump")
+MatrixAll <- as.matrix(TermsAll)
+
+comparison.cloud(MatrixAll, colors = c("#FF1493", "blue"), scale=c(2.3,.3), max.words = 75)
+
+```
+```{r}
+TrumpTidy <- tidy(TrumpCorpus)
+ClintonTidy <- tidy(ClintonCorpus)
+TrumpTidy1 <- tidy(TrumpCorpus1) #without names
+ClintonTidy1 <- tidy(ClintonCorpus1) #without names
+```
+
+
+
+```{r}
+##adding the date of the Tweets from the document level meta data
+DocMetaTrump1 <- meta(TrumpCorpus1)
+DocMetaTrump1$date <- date(DocMetaTrump1$time)
+TrumpTidy1$date <- DocMetaTrump1$date
+
+DocMetaClinton1 <- meta(ClintonCorpus1)
+DocMetaClinton1$date <- date(DocMetaClinton1$time)
+ClintonTidy1$date <- DocMetaClinton1$date
+
+NoNamesTidy <- bind_rows(trump=TrumpTidy1, clinton=ClintonTidy1, .id="candidate")
+Words <- NoNamesTidy %>% unnest_tokens(word, text)
+
+Bing <- Words %>% inner_join(get_sentiments("bing"), by="word")
+
+b1 <- Bing %>% filter(candidate=="trump") %>% count(word, sentiment, sort=TRUE) %>%
+        group_by(sentiment) %>% arrange(desc(n)) %>% slice(1:20) %>%
+        ggplot(aes(x=reorder(word, n), y=n)) +
+        geom_col(aes(fill=sentiment), show.legend=FALSE) +
+        coord_flip() +
+        facet_wrap(~sentiment, scales="free_y") +
+        labs(x="", y="number of times used", title="Donald Trump's most used words") +
+        scale_fill_manual(values = c("positive"="green", "negative"="red"))
+b2 <- Bing %>% filter(candidate=="clinton") %>% count(word, sentiment, sort=TRUE) %>%
+        group_by(sentiment) %>% arrange(desc(n)) %>% slice(1:20) %>%
+        ggplot(aes(x=reorder(word, n), y=n)) +
+        geom_col(aes(fill=sentiment), show.legend=FALSE) +
+        coord_flip() +
+        facet_wrap(~sentiment, scales="free_y") +
+        labs(x="", y="number of times used", title="Hillary Clinton's most used words") +
+        scale_fill_manual(values = c("positive"="green", "negative"="red"))
+grid.arrange(b1, b2)
+```
+
+
+Through the use of the nrc lexicon. the words were categorized into positive or negative sentiment as well as into 8 basic emotions, that is, trust, anticipation, joy, anger, surprise, fear, sadness, and disgust. 
+
+```{r}
+get_sentiments("nrc")
+```
+
+
+Through the use of the nrc lexicon, it was possible to identify the difference between the sentiments in Trump's and Hillary's tweets. It was identified that Trump used more negativity as well as abit disgust, anger, and sadness.
+```{r}
+Nrc <- Words %>% inner_join(get_sentiments("nrc"), by="word")
+
+n1 <- Nrc %>% filter(candidate=="trump") %>% count(sentiment) %>%
+        ggplot(aes(x=sentiment, y=n, fill=sentiment)) +
+        geom_bar(stat="identity") + coord_polar() +
+        theme(legend.position = "none", axis.text.x = element_blank()) +
+        geom_text(aes(label=sentiment, y=2500)) +
+        labs(x="", y="", title="Trump")
+n2 <- Nrc %>% filter(candidate=="clinton") %>% count(sentiment) %>%
+        ggplot(aes(x=sentiment, y=n, fill=sentiment)) +
+        geom_bar(stat="identity") + coord_polar() +
+        theme(legend.position = "none", axis.text.x = element_blank()) +
+        geom_text(aes(label=sentiment, y=2500)) +
+        labs(x="", y="", title="Clinton")
+grid.arrange(n1, n2, nrow=1)
+```
+
+## Conclusion
+The presidential candidates, in their tweets, expressed different sentiments and emotions. The Democrat candidate Hillary Clinton's tweets involve positive sentiments and emotions. However, the tweets from the Republican candidate, Donald Trump, involve more negative sentiments and emotions and use more negation words is true. This is because, from the analysis performed in this project, it is clear that Trump had more negativity than Clinton in their tweets. 
+
+# References
+Calvin, A. J., Bellmore, A., Xu, J. M., & Zhu, X. (2015). # bully: Uses of hashtags in posts about bullying on Twitter. Journal of School Violence, 14(1), 133-153.
+
+Jahanbakhsh, K., & Moon, Y. (2014). The predictive power of social media: On the predictability of us presidential elections using twitter. arXiv preprint arXiv:1407.0622.
+
+Joyce, B., & Deng, J. (2017, November). Sentiment analysis of tweets for the 2016 US presidential election. In 2017 ieee mit undergraduate research technology conference (urtc) (pp. 1-4). IEEE.
+
+Knight, C. G., & Kaye, L. K. (2016). ‘To tweet or not to tweet?’A comparison of academics’ and students’ usage of Twitter in academic contexts. Innovations in education and teaching international, 53(2), 145-155.
+
+Wang, W., Chen, L., Thirunarayan, K., & Sheth, A. P. (2012, September). Harnessing twitter" big data" for automatic emotion identification. In 2012 International Conference on Privacy, Security, Risk and Trust and 2012 International Confernece on Social Computing (pp. 587-592). IEEE.
+
